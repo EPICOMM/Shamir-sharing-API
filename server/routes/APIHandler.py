@@ -1,10 +1,28 @@
 from aiohttp import web
-
+import server.shamath.__init__ as shamir_math_module
+from server.models import RSARoomsManager
 
 class APIHandler:
+    def __init__(self):
+        self._rooms_manager = RSARoomsManager.RSARoomsManager()
+
     async def create_secret_room(self, request):
-        # code
-        return web.json_response({'message': 'test'})
+        data = await request.json()
+        schema_type = data["type"]
+        participants = data["names"]
+        formula = None
+        if schema_type == "threshold":
+            threshold = int(data["threshold"])
+            participants_string = ""
+            for index, participant in enumerate(participants):
+                participants_string += str(participant)
+                if index != len(participants) - 1:
+                    participants_string += ','
+            formula = f"T{threshold}({participants_string})"
+        elif schema_type == "formula":
+            formula = data["formula"]
+        room_id = self._rooms_manager.create_room(participants, formula)
+        return web.json_response({'room_id': room_id}, status=200)
 
     async def get_secret_room(self, request):
         # code
@@ -39,14 +57,16 @@ class APIHandler:
         return web.json_response({'message': 'test'})
 
 
+HANDLER = APIHandler()
+
 ROUTES_LIST = [
-    web.post('/createSecretRoom', APIHandler.create_secret_room),
-    web.post('/getSecretRoom', APIHandler.get_secret_room),
-    web.post('/downloadSecretShare', APIHandler.download_secret_share),
-    web.post('/createSigningRoom', APIHandler.create_signing_room),
-    web.post('/getSigningRoom', APIHandler.get_signing_room),
-    web.post('/downloadOriginalDocument', APIHandler.download_original_document),
-    web.post('/signDocument', APIHandler.sign_document),
-    web.post('/finishSigning', APIHandler.finish_signing),
-    web.post('/downloadSignedDocument', APIHandler.download_signed_document)
+    web.post('/createSecretRoom', HANDLER.create_secret_room),
+    web.post('/getSecretRoom', HANDLER.get_secret_room),
+    web.post('/downloadSecretShare/{room_id}', HANDLER.download_secret_share),
+    web.post('/createSigningRoom', HANDLER.create_signing_room),
+    web.post('/getSigningRoom', HANDLER.get_signing_room),
+    web.post('/downloadOriginalDocument', HANDLER.download_original_document),
+    web.post('/signDocument', HANDLER.sign_document),
+    web.post('/finishSigning', HANDLER.finish_signing),
+    web.post('/downloadSignedDocument', HANDLER.download_signed_document)
 ]
