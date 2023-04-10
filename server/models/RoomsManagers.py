@@ -18,7 +18,7 @@ def _generate_room_id() -> str:
             id_result += "-"
 
 
-class RoomStoredData:
+class SecretCreationRoomStoredData:
     creation_datetime: datetime
     identifier: str
     participants_shares: list[shamir_math_module.Part]
@@ -35,9 +35,17 @@ class RoomStoredData:
         self.formula = formula
         self.format_version = format_version
 
+    def pop_share_by_user(self, user_id: str) -> shamir_math_module.Part:
+        for user in self.participants_shares:
+            if user.name == user_id:
+                to_return = user.values
+                user.values = None
+                return to_return
+        raise Exception()
 
-class RSARoomsManager:
-    _stored_rooms: list[RoomStoredData]
+
+class SecretCreationRoomsManager:
+    _stored_rooms: list[SecretCreationRoomStoredData]
 
     def __init__(self):
         self._stored_rooms = []
@@ -47,22 +55,13 @@ class RSARoomsManager:
         key_int = utils.private_key_to_int(key)
         configuration = shamir_math_module.Configuration(modulo=CONFIGURATION_MODULO, formula=formula)
         key_splitted = configuration.split(key_int)
-        new_room = RoomStoredData(key.public_key(), key_splitted)
+        new_room = SecretCreationRoomStoredData(key.public_key(), key_splitted)
         self._stored_rooms.append(new_room)
         return new_room.identifier
 
-    def pop_share_by_user(self, room_id: str, user_id: str) -> shamir_math_module.Part:
-        for room in self._stored_rooms:
-            if room.identifier == room_id:
-                for user in room.participants_shares:
-                    if user.name == user_id:
-                        to_return = user.values
-                        user.values = None
-                        return to_return
-        raise Exception()
 
-    def get_room_stored_data(self, room_id: str) -> RoomStoredData:
+    def get_room_stored_data(self, room_id: str) -> SecretCreationRoomStoredData:
         for room in self._stored_rooms:
             if room.identifier == room_id:
                 return room
-
+        raise Exception()
