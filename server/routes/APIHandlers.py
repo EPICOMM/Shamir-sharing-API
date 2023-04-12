@@ -61,8 +61,8 @@ class APISecretCreationHandler:
         public_numbers = room_stored_data.public_key.public_numbers()
         file_fields = {
             "format_version": room_stored_data.format_version,
-            "name": popped_share.name,
-            "share_values": popped_share.values,
+            "name": user_id,
+            "share_values": popped_share,
             'public_key':
                 {
                     'n': str(public_numbers.n),
@@ -72,7 +72,9 @@ class APISecretCreationHandler:
         }
         json_string = json.dumps(file_fields)
         json_bytes = str.encode(json_string)
-        return web.Response(body=json_bytes, content_type="application/octet-stream")
+        resp_headers = {'Content-Type': 'application/octet-stream',
+                        'Content-Disposition': f'attachment; filename="{room_stored_data.identifier}.rpk"'}
+        return web.Response(body=json_bytes, headers=resp_headers)
 
     async def download_public_key(self, request):
         room_id = request.match_info['room_id']
@@ -84,7 +86,9 @@ class APISecretCreationHandler:
         }
         json_string = json.dumps(file_fields)
         json_bytes = str.encode(json_string)
-        return web.Response(body=json_bytes, content_type="application/octet-stream")
+        resp_headers = {'Content-Type': 'application/octet-stream',
+                        'Content-Disposition': f'attachment; filename="{room_stored_data.identifier}.sss"'}
+        return web.Response(body=json_bytes, headers=resp_headers)
 
 
 class APIDocumentSigningHandler:
@@ -111,8 +115,8 @@ class APIDocumentSigningHandler:
         json_object = json.loads(json_string)
         room_id, creator_token = self._rooms_manager.create_room(json_object['name'], json_object['share_values'],
                                                                  int(json_object['public_key']['n']),
-                                                                 int(json_object['public_key']['e'],
-                                                                     json_object['formula']), pdf_binary, pdf_name,
+                                                                 int(json_object['public_key']['e']),
+                                                                     json_object['formula'], pdf_binary, pdf_name,
                                                                  json_object['format_version'])
         return web.json_response({'room_id': room_id,
                                   'creator_token': creator_token

@@ -2,7 +2,6 @@ from datetime import datetime
 from server.utils import utils
 import secret_sharing.__init__ as shamir_math_module
 from cryptography.hazmat.primitives.asymmetric import rsa
-from Crypto.Util import number
 import random
 import string
 
@@ -29,6 +28,7 @@ def _generate_room_id() -> str:
             id_result += random.choice(string.ascii_letters)
         if block != 3:
             id_result += "-"
+    return id_result
 
 
 class SecretCreationRoomStoredData:
@@ -48,7 +48,7 @@ class SecretCreationRoomStoredData:
         self.formula = formula
         self.format_version = format_version
 
-    def pop_share_by_user(self, user_id: str) -> shamir_math_module.Part:
+    def pop_share_by_user(self, user_id: str) -> list[int]:
         for user in self.participants_shares:
             if user.name == user_id:
                 to_return = user.values
