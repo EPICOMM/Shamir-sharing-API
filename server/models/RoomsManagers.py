@@ -56,7 +56,7 @@ class SecretCreationRoomStoredData:
                 return to_return
         raise Exception()
 
-#TODO
+
 class SecretCreationRoomsManager:
     _stored_rooms: list[SecretCreationRoomStoredData]
 
@@ -68,7 +68,7 @@ class SecretCreationRoomsManager:
         key_int = utils.private_key_to_int(key)
         configuration = shamir_math_module.Configuration(modulo=CONFIGURATION_MODULO, formula=formula)
         key_splitted = configuration.split(key_int)
-        new_room = SecretCreationRoomStoredData(key.public_key(), key_splitted)
+        new_room = SecretCreationRoomStoredData(key_splitted, key.public_key(), formula, 1)
         self._stored_rooms.append(new_room)
         return new_room.identifier
 
@@ -109,6 +109,7 @@ class DocumentSigningRoomStoredData:
 
     def add_share(self, name: str, share_values: list[int]):
         self.participants_shares.append(shamir_math_module.Part(name, share_values))
+
     def finish_signing(self, creator_token: str) -> bool:
         restored_secret = self._configuration.restore(self.participants_shares)
         restored_key = utils.int_to_private_key(restored_secret)
@@ -119,6 +120,7 @@ class DocumentSigningRoomStoredData:
         if self._configuration.restore(self.participants_shares) is not None:
             return True
         return False
+
 
 class DocumentSigningRoomsManager:
     _stored_rooms: list[SecretCreationRoomStoredData]
@@ -140,28 +142,34 @@ class DocumentSigningRoomsManager:
             if room.identifier == room_id:
                 return room
         raise Exception()
-#TODO
+
+
 class SecretReissueRoomStoredData:
     creation_datetime: datetime
     identifier: str
     participants_shares: list[shamir_math_module.Part]
-    public_key: rsa.RSAPublicKey
     formula: str
     new_formula: str
     participants_new_shares: list[shamir_math_module.Part]
     format_version: int
+    _configuration: shamir_math_module.Configuration
+    _new_configuration: shamir_math_module.Configuration
 
-    def __init__(self, key_splitted: list[shamir_math_module.Part], public_key: rsa.RSAPublicKey, formula: str,
+    def __init__(self, initial_share: shamir_math_module.Part, formula: str, new_formula: str,
                  format_version: int):
         self.creation_datetime = datetime.now()
         self.identifier = _generate_room_id()
-        self.participants_shares = key_splitted
-        self.public_key = public_key
+        self.participants_shares = [initial_share]
         self.formula = formula
+        self.new_formula = new_formula
         self.format_version = format_version
+        self.participants_new_shares = None
+        self._configuration = shamir_math_module.Configuration(CONFIGURATION_MODULO, formula, 1)
+        self._configuration = shamir_math_module.Configuration(CONFIGURATION_MODULO, new_formula, 1)
 
-    def try_reissue(self) -> bool:
-        pass
+    def add_share(self, name: str, share_values: list[int]):
+        self.participants_shares.append(shamir_math_module.Part(name, share_values))
+
     def pop_share_by_user(self, user_id: str) -> shamir_math_module.Part:
         for user in self.participants_new_shares:
             if user.name == user_id:
@@ -170,22 +178,28 @@ class SecretReissueRoomStoredData:
                 return to_return
         raise Exception()
 
+    def try_reissue(self) -> bool:
+        try:
+            self.participants_new_shares = self._configuration.modify(self._new_configuration, self.participants_shares)
+        except:
+            return 1
+        return 0
+
+
 class SecretReissueRoomsManager:
     _stored_rooms: list[SecretReissueRoomStoredData]
 
     def __init__(self):
         self._stored_rooms = []
 
-    def create_room(self, participants_lists: list, formula: str) -> str:
-        key = rsa.generate_private_key(public_exponent=65537, key_size=4096)
-        key_int = utils.private_key_to_int(key)
-        configuration = shamir_math_module.Configuration(modulo=CONFIGURATION_MODULO, formula=formula)
-        key_splitted = configuration.split(key_int)
-        new_room = SecretCreationRoomStoredData(key.public_key(), key_splitted)
+    def create_room(self, initial_share_name: str, initial_share_value: int, formula: str, new_formula: str,
+                    format_version: int) -> str:
+        new_room = SecretReissueRoomStoredData(shamir_math_module.Part(initial_share_name, initial_share_value),
+                                                formula, new_formula, format_version)
         self._stored_rooms.append(new_room)
         return new_room.identifier
 
-    def get_room_stored_data(self, room_id: str) -> SecretCreationRoomStoredData:
+    def get_room_stored_data(self, room_id: str) -> SecretReissueRoomStoredData:
         for room in self._stored_rooms:
             if room.identifier == room_id:
                 return room

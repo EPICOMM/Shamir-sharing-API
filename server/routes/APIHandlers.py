@@ -2,6 +2,7 @@ import aiohttp
 from aiohttp import web
 import server.secret_sharing.__init__ as shamir_math_module
 from server.models import RoomsManagers
+from server.utils import utils
 import json
 
 
@@ -42,7 +43,7 @@ class APISecretCreationHandler:
         links_dict = {}
         for share in room_stored_data.participants_shares:
             if share.values is not None:
-                links_dict[share.name] = f"/getSecretRoom/{room_id}/{share.name}"
+                links_dict[share.name] = f"/downloadSecretShare/{room_id}/{share.name}"
             else:
                 links_dict[share.name] = None
         return web.json_response({'links': links_dict,
@@ -122,7 +123,7 @@ class APIDocumentSigningHandler:
         room_id = request.rel_url.query['room_id']
         room_stored_data = self._rooms_manager.get_room_stored_data(room_id)
         return web.json_response({
-            'signed_count':len(room_stored_data.participants_shares),
+            'signed_count': len(room_stored_data.participants_shares),
             'participants_count': room_stored_data.participants_count,
             'enough_participants': room_stored_data.signing_available(),
             'original_document_link': f'/downloadOriginalDocument/{room_id}'
@@ -162,8 +163,72 @@ class APIDocumentSigningHandler:
         return web.Response(body=room_stored_data.pdf_signed_binary, headers=resp_headers)
 
 
+class APISecretReissueHandler:
+    def __init__(self):
+        self._rooms_manager = RoomsManagers.SecretReissueRoomsManager()
+
+    async def create_secret_reissue_room(self, request):
+        formula = request.rel_url.query['formula']
+        share_binary = await request.read()
+        json_string = share_binary.decode()
+        json_object = json.loads(json_string)
+        room_id = self._rooms_manager.create_room(json_object['name'], json_object['share_values'],
+                                                  json_object['formula'],
+                                                  formula, json_object['format_version'])
+        return web.Response(message=room_id)
+
+    async def get_secret_reissue_room(self, request):
+        room_id = request.rel_url.query['room_id']
+        room_stored_data = self._rooms_manager.get_room_stored_data(room_id)
+        room_status = 'waiting_participants'
+        links_dict = None
+        if room_stored_data.participants_new_shares is not None:
+            room_status = "reissued"
+            links_dict = {}
+            for share in room_stored_data.participants_shares:
+                if share.values is not None:
+                    links_dict[share.name] = f"/downloadReissuedSecretShare/{room_id}/{share.name}"
+                else:
+                    links_dict[share.name] = None
+        return web.json_response({
+            'signed_count': len(room_stored_data.participants_shares),
+            'participants_count': room_stored_data.participants_count,
+            'room_status': room_status,
+            'links': links_dict
+        })
+
+
+
+class APIVerifySignatureHandler:
+
+    async def verify_signature(self, request):
+        multipart = await request.multipart()
+        pdf_binary = None
+        pdf_name = "document.pdf"
+        public_part_binary = None
+        while True:
+            part = await multipart.next()
+            if part is None:
+                break
+            if part.headers[aiohttp.hdrs.CONTENT_TYPE] == 'application/pdf':
+                pdf_binary = bytes(await part.read())
+                if part.filename is not None:
+                    pdf_name = part.filename
+            elif part.headers[aiohttp.hdrs.CONTENT_TYPE] == 'application/octet-stream':
+                public_part_binary = bytes(await part.read())
+
+        json_string = public_part_binary.decode()
+        json_object = json.loads(json_string)
+        try:
+            utils.verify_pdf_signature(pdf_binary, int(json_object['e']), int(json_object['n']))
+        except:
+            return web.Response('OK')
+        return web.Response('WRONG')
+
 SECRET_CREATION_HANDLER = APISecretCreationHandler()
 DOCUMENT_SIGNING_HANDLER = APIDocumentSigningHandler()
+SECRET_REISSUE_HANDLER = APISecretReissueHandler()
+VERIFY_SIGNATURE_HANDLER = APIVerifySignatureHandler()
 
 ROUTES_LIST = [
     web.post('/createSecretRoom', SECRET_CREATION_HANDLER.create_secret_room),
@@ -175,5 +240,6 @@ ROUTES_LIST = [
     web.get('/downloadOriginalDocument/{room_id}', DOCUMENT_SIGNING_HANDLER.download_original_document),
     web.post('/signDocument', DOCUMENT_SIGNING_HANDLER.sign_document),
     web.post('/finishSigning', DOCUMENT_SIGNING_HANDLER.finish_signing),
-    web.post('/downloadSignedDocument/{room_id}', DOCUMENT_SIGNING_HANDLER.download_signed_document)
+    web.get('/downloadSignedDocument/{room_id}', DOCUMENT_SIGNING_HANDLER.download_signed_document),
+    web.get('/verifySignature', VERIFY_SIGNATURE_HANDLER.verify_signature)
 ]

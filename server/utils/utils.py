@@ -81,7 +81,8 @@ def add_signature_to_pdf(pdf_data: bytes, private_key: rsa.RSAPrivateKey) -> byt
     return output_stream.read()
 
 
-def verify_pdf_signature(pdf_data: bytes, public_key: rsa.RSAPublicKey) -> None:
+def verify_pdf_signature(pdf_data: bytes, e: int, n: int) -> None:
+    public_key = rsa.RSAPublicNumbers(e, n).public_key()
     pdf_reader = PdfReader(BytesIO(pdf_data))
     metadata_values = pdf_reader.metadata.values()
     signature = base64.b64decode(metadata_values.mapping['/shamir_signature'])
