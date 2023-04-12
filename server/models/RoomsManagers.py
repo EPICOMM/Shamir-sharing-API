@@ -1,6 +1,6 @@
 from datetime import datetime
 from server.utils import utils
-import server.secret_sharing.__init__ as shamir_math_module
+import secret_sharing.__init__ as shamir_math_module
 from cryptography.hazmat.primitives.asymmetric import rsa
 from Crypto.Util import number
 import random

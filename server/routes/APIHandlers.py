@@ -1,6 +1,5 @@
 import aiohttp
 from aiohttp import web
-import server.secret_sharing.__init__ as shamir_math_module
 from server.models import RoomsManagers
 from server.utils import utils
 import json
