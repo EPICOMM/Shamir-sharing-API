@@ -59,7 +59,7 @@ def int_to_private_key(converted_key: int, public_key: rsa.RSAPublicKey) -> rsa.
 
 def add_signature_to_pdf(pdf_data: bytes, private_key: rsa.RSAPrivateKey) -> bytes:
     adjusted_data = _adjust_pdf(pdf_data)
-    digest = hashes.Hash(hashes.SHA256)
+    digest = hashes.Hash(hashes.SHA256())
     digest.update(adjusted_data)
     hash_value = digest.finalize()
     signature = private_key.sign(
@@ -77,7 +77,7 @@ def add_signature_to_pdf(pdf_data: bytes, private_key: rsa.RSAPrivateKey) -> byt
     pdf_writer.add_metadata({'/shamir_signature': base64.b64encode(signature).decode('ascii')})
     output_stream = BytesIO()
     pdf_writer.write(output_stream)
-    pdf_writer.seek(0)
+    output_stream.seek(0)
     return output_stream.read()
 
 

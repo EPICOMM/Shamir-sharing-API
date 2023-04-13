@@ -49,10 +49,10 @@ class SecretCreationRoomStoredData:
         self.format_version = format_version
 
     def pop_share_by_user(self, user_id: str) -> list[int]:
-        for user in self.participants_shares:
-            if user.name == user_id:
+        for index, user in enumerate(self.participants_shares):
+            if user.name == user_id and user.values is not None:
                 to_return = user.values
-                user.values = None
+                self.participants_shares[index].values = None
                 return to_return
         raise Exception()
 
@@ -104,7 +104,7 @@ class DocumentSigningRoomStoredData:
         self.formula = formula
         self.signed_pdf_binary = None
         self.format_version = format_version
-        self._configuration = shamir_math_module.Configuration(CONFIGURATION_MODULO, formula)
+        self._configuration = shamir_math_module.Configuration(modulo=CONFIGURATION_MODULO, formula=formula)
         self.participants_count = len(self._configuration.names())
 
     def add_share(self, name: str, share_values: list[int]):
@@ -112,8 +112,8 @@ class DocumentSigningRoomStoredData:
 
     def finish_signing(self, creator_token: str) -> bool:
         restored_secret = self._configuration.restore(self.participants_shares)
-        restored_key = utils.int_to_private_key(restored_secret)
-        self.signed_document_binary = utils.add_signature_to_pdf(self.pdf_binary, restored_key)
+        restored_key = utils.int_to_private_key(restored_secret, self.public_key)
+        self.signed_pdf_binary = utils.add_signature_to_pdf(self.pdf_binary, restored_key)
         return 0
 
     def signing_available(self) -> bool:
@@ -151,11 +151,14 @@ class SecretReissueRoomStoredData:
     formula: str
     new_formula: str
     participants_new_shares: list[shamir_math_module.Part]
+    participants_count: int
     format_version: int
+    public_key: rsa.RSAPublicKey
     _configuration: shamir_math_module.Configuration
     _new_configuration: shamir_math_module.Configuration
 
-    def __init__(self, initial_share: shamir_math_module.Part, formula: str, new_formula: str,
+    def __init__(self, initial_share: shamir_math_module.Part, public_key: rsa.RSAPublicKey, formula: str,
+                 new_formula: str,
                  format_version: int):
         self.creation_datetime = datetime.now()
         self.identifier = _generate_room_id()
@@ -164,19 +167,24 @@ class SecretReissueRoomStoredData:
         self.new_formula = new_formula
         self.format_version = format_version
         self.participants_new_shares = None
-        self._configuration = shamir_math_module.Configuration(CONFIGURATION_MODULO, formula, 1)
-        self._configuration = shamir_math_module.Configuration(CONFIGURATION_MODULO, new_formula, 1)
+        self._configuration = shamir_math_module.Configuration(modulo=CONFIGURATION_MODULO, formula=formula,
+                                                               version=format_version)
+        self._new_configuration = shamir_math_module.Configuration(modulo=CONFIGURATION_MODULO, formula=new_formula,
+                                                                   version=format_version)
+        self.participants_count = len(self._configuration.names())
+        self.public_key = public_key
 
     def add_share(self, name: str, share_values: list[int]):
         self.participants_shares.append(shamir_math_module.Part(name, share_values))
 
     def pop_share_by_user(self, user_id: str) -> shamir_math_module.Part:
-        for user in self.participants_new_shares:
-            if user.name == user_id:
-                to_return = user.values
-                user.values = None
-                return to_return
-        raise Exception()
+        def pop_share_by_user(self, user_id: str) -> list[int]:
+            for index, user in enumerate(self.participants_new_shares):
+                if user.name == user_id and user.values is not None:
+                    to_return = user.values
+                    self.participants_new_shares[index].values = None
+                    return to_return
+            raise Exception()
 
     def try_reissue(self) -> bool:
         try:
@@ -192,10 +200,12 @@ class SecretReissueRoomsManager:
     def __init__(self):
         self._stored_rooms = []
 
-    def create_room(self, initial_share_name: str, initial_share_value: int, formula: str, new_formula: str,
+    def create_room(self, initial_share_name: str, initial_share_value: int, public_n: int, public_e: int, formula: str,
+                    new_formula: str,
                     format_version: int) -> str:
         new_room = SecretReissueRoomStoredData(shamir_math_module.Part(initial_share_name, initial_share_value),
-                                                formula, new_formula, format_version)
+                                               rsa.RSAPublicNumbers(public_e, public_n).public_key(),
+                                               formula, new_formula, format_version)
         self._stored_rooms.append(new_room)
         return new_room.identifier
 
