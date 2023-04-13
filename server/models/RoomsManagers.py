@@ -111,10 +111,12 @@ class DocumentSigningRoomStoredData:
         self.participants_shares.append(shamir_math_module.Part(name, share_values))
 
     def finish_signing(self, creator_token: str) -> bool:
-        restored_secret = self._configuration.restore(self.participants_shares)
-        restored_key = utils.int_to_private_key(restored_secret, self.public_key)
-        self.signed_pdf_binary = utils.add_signature_to_pdf(self.pdf_binary, restored_key)
-        return 0
+        if creator_token == self.creator_token:
+            restored_secret = self._configuration.restore(self.participants_shares)
+            restored_key = utils.int_to_private_key(restored_secret, self.public_key)
+            self.signed_pdf_binary = utils.add_signature_to_pdf(self.pdf_binary, restored_key)
+            return 0
+        return 1
 
     def signing_available(self) -> bool:
         if self._configuration.restore(self.participants_shares) is not None:
