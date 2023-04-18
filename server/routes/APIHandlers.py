@@ -283,5 +283,5 @@ ROUTES_LIST = [
     web.get('/getSecretReissueRoom', SECRET_REISSUE_HANDLER.get_secret_reissue_room),
     web.post('/approveSecretReissue', SECRET_REISSUE_HANDLER.approve_secret_reissue),
     web.get('/downloadReissuedSecretShare/{room_id}/{user_id}', SECRET_REISSUE_HANDLER.download_reissued_secret_share),
-    web.get('/verifySignature', VERIFY_SIGNATURE_HANDLER.verify_signature)
+    web.post('/verifySignature', VERIFY_SIGNATURE_HANDLER.verify_signature)
 ]
