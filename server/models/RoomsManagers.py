@@ -108,7 +108,8 @@ class DocumentSigningRoomStoredData:
         self.participants_count = len(self._configuration.names())
 
     def add_share(self, name: str, share_values: list[int]):
-        self.participants_shares.append(shamir_math_module.Part(name, share_values))
+        if not (shamir_math_module.Part(name, share_values) in self.participants_shares):
+            self.participants_shares.append(shamir_math_module.Part(name, share_values))
 
     def finish_signing(self, creator_token: str) -> bool:
         if creator_token == self.creator_token:
@@ -177,7 +178,8 @@ class SecretReissueRoomStoredData:
         self.public_key = public_key
 
     def add_share(self, name: str, share_values: list[int]):
-        self.participants_shares.append(shamir_math_module.Part(name, share_values))
+        if not (shamir_math_module.Part(name, share_values) in self.participants_shares):
+            self.participants_shares.append(shamir_math_module.Part(name, share_values))
 
     def pop_share_by_user(self, user_id: str) -> shamir_math_module.Part:
         def pop_share_by_user(self, user_id: str) -> list[int]:
